@@ -192,7 +192,7 @@ def compile(functions):
 
 if __name__ == '__main__':
   functions = []
-  with open("rep/cuda_funcs.txt") as f:
+  with open("cuda_funcs.txt") as f:
     for line in f:
       if '#' in line:
         functions.append((line.split("#")[0],line.split('#')[1][:-1]))
