@@ -1,68 +1,12 @@
 import pygame
 import numpy as np
 from PIL import Image,ImageDraw, ImageFont, ExifTags
-#from erstelle_video import make_video,make_video_rev
 import os
 from ctypes import *
 from math import *
 from time import time,sleep
-#import funcs
-#import color
 from sys import platform
 from random import randint
-
-def isLoaded(lib):
-   ret = os.system("lsof | grep " +lib + ">/dev/null" )
-   return (ret == 0)
-
-lib = CDLL("libdl.so")
-def set_c_function(func="z =sin(z)*sin(z)*z*tanh(z+c)*z*z*cos(z) +c"):
-  try:
-    global mandel   
-  except:
-    del mandel
-  with open("rep/frac.c","w+") as w:
-    with open("rep/part1.c","r") as f:
-      for line in f:
-       w.write(line)
-    w.write(func+"\n")
-    with open("rep/part2.c","r") as f:
-      for line in f:
-       w.write(line)
-  os.system("gcc -shared -o frac.so -fPIC rep/frac.c")
-  LibName = 'frac.so'
-  AbsLibPath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + LibName
-  while isLoaded("frac.so"):
-     lib.dlclose(mandel._handle) 
-  mandel = CDLL(AbsLibPath)
-  #os.system("rm frac.so")
-  print("C-Funktion",func,"eingestellt")
-
-def set_cuda_function(func="z=cuCsub(cuCmul(z,z),c)"):
-  try:
-    global mandel   
-  except:
-    del mandel
-  
-  f = open("rep/part1.cu","r")
-  w = open("rep/frac.cu","w+")
-  for line in f:
-     w.write(line)
-  w.write(func+"\n")
-  f.close()
-  f = open("rep/part2.cu","r")
-  for line in f:
-     w.write(line)
-  f.close()
-  w.close()
-  os.system("nvcc rep/frac.cu -arch sm_61 -Xcompiler -fPIC -shared -o frac.so")
-  LibName = 'frac.so'
-  AbsLibPath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + LibName
-  while isLoaded("frac.so"):
-     lib.dlclose(mandel._handle) 
-  mandel = CDLL(AbsLibPath,mode=RTLD_LOCAL)
-  os.system("rm frac.so")
-  print("Cuda-Funktion",func,"eingestellt")
 
 def load_cuda():
   global mandel
@@ -70,11 +14,6 @@ def load_cuda():
   LibName = 'frac.so'
   AbsLibPath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + LibName
   mandel = CDLL(AbsLibPath,mode=RTLD_LOCAL)
-
-def clear_folder(folder):
-  for datei in os.listdir(folder):
-    os.remove(folder+datei)
-  print("Inhalt des Ordners "+folder+" gelöscht")
 
 class Button():
   active = False
@@ -84,7 +23,6 @@ class Button():
     self.pos = pos
     self.text = text
     self.text_surface = parent.myfont.render(text[2:],False,(0,0,0))
-
   def draw(self):
     pygame.draw.rect(self.parent.screen,(150,150+self.active*50,150),(self.pos[0],self.pos[1],self.size[0],self.size[1]),0)
     pygame.draw.rect(self.parent.screen,(200,200,200),(self.pos[0],self.pos[1],self.size[0],self.size[1]),1)
@@ -130,7 +68,6 @@ class AdvButton(Button):
       self.parent.jump(0)
     if self.jump:
       self.parent.jump(0)
-
 
 class Textfeld():
   def __init__(self,parent,pos,size,value):
@@ -201,9 +138,6 @@ class Animation():
           #self.make_buttons()
           self.update()
 
-    def clear(self):
-        clear_folder("pics/")
-
     def run(self):
         print(self.size,self.frame,self.iterations,self.center,self.func)
         s = time()
@@ -258,11 +192,6 @@ class Animation():
     def background(self):
         if (self.start and self.start != self.end) or (self.iterations != self.iterations_start):
             self.iterations = int(self.iterations_start + self.it_grow * self.frame)
-            #print(self.iterations)
-        #if self.start:
-        #    self.span = self.start * self.zoom ** (self.frame)
-        #else:
-        #    self.span = 4 * self.zoom ** (self.frame)
         self.make_picture()
         if self.screen:
           self.img  = pygame.image.frombuffer(self.result,(self.size[0],self.size[1]),"RGB")
@@ -430,15 +359,7 @@ class Animation():
         self.textfelder.append(Textfeld(self, (0, self.size[1]+30), (70, 30), "frame"))
         self.buttons.append(AdvButton(self,(70,self.size[1]+30),(100,30),"Julia",lambda:self.toggle("julia"),jump=True,aa=True,group=False,toggle=True))
         self.buttons.append(AdvButton(self,(170,self.size[1]+30),(100,30),"Rotate",lambda:self.toggle("rotate"),jump=True,aa=True,group=False,toggle=True))
-        self.buttons.append(AdvButton(self,(270,self.size[1]+30),(100,30),"Disort",lambda:self.toggle("disort"),jump=True,aa=True,group=False,toggle=True))
-                
-        return
-        for fun in dir(color):
-            if not fun.find("c_"):
-                self.buttons.append(AdvButton(self, (self.size[0] + 150, y * 30), (150, 30), fun[3:],
-                                              (lambda x=fun: self.set_color(x))))
-                y += 1
-
+        self.buttons.append(AdvButton(self,(270,self.size[1]+30),(100,30),"Disort",lambda:self.toggle("disort"),jump=True,aa=True,group=False,toggle=True))              
     def window(self):
         '''Initialisiere Alle Einstellungen und Buttons für Pygame'''
         running = True
@@ -448,8 +369,6 @@ class Animation():
         self.screen = pygame.display.set_mode((self.size[0] + 200, self.size[1] + 60))
         
         self.make_buttons()
-       
-        
         for button in self.buttons:
             button.draw()
         for textfeld in self.textfelder:
@@ -465,8 +384,6 @@ class Animation():
                   self.center[0] + (pos[0] - self.size[0] / 2) / ((self.size[0]) / 2 / (self.span))/4,
                   self.center[1] + (pos[1] - self.size[1] / 2) / ((self.size[1]) / 2 / (self.span))/4   )
                 self.jump(self.steps)
-                
-                #sleep(1/25)
             elif right_click:
               pos = pygame.mouse.get_pos()
               if pos[0] < self.size[0] and pos[1] < self.size[1]:
@@ -531,10 +448,8 @@ class Animation():
                     right_click = True 
                     self.jump(-self.steps)
                   pos = pygame.mouse.get_pos()
-                  #if not pos[0] < self.size[0] and pos[1] < self.size[1]:
                   for button in self.buttons:
                             button.click(pos)
-                                #self.jump(0)
                   self.update()
 
                   for button in self.buttons:
@@ -550,18 +465,15 @@ class Animation():
             self.draw_grid()
             pygame.display.flip()
         pygame.quit()
-
+      
 class Anim2(Animation):
    func = "z = cuCsub(cuCmul(z,z),c)"
    fun = None
-   #size = (640,480)
    def init_end(self):
         if self.loadfunc:
           self.set_cuda_function(self.func)
         objlength = self.size[0]*self.size[1]*3
         self.result = (c_ubyte*objlength)()
-
-
    def set_c_function(self, func):
         self.func = func
         set_c_function(func)
