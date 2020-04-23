@@ -15,3 +15,6 @@ Cuda based Fractal Explorer with Pygame UI
 -nvcc (Nvidia Compiler) and NVIDIA GPU
 
 -ffmpeg
+
+First run compile.py
+then fractal.py
