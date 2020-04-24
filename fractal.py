@@ -1,12 +1,10 @@
 import pygame
 import numpy as np
-from PIL import Image,ImageDraw, ImageFont, ExifTags
+from PIL import Image
 import os
 from ctypes import *
-from math import *
 from time import time,sleep
 from sys import platform
-from random import randint
 
 def load_cuda():
   global mandel
@@ -23,6 +21,7 @@ class Button():
     self.pos = pos
     self.text = text
     self.text_surface = parent.myfont.render(text[2:],False,(0,0,0))
+
   def draw(self):
     pygame.draw.rect(self.parent.screen,(150,150+self.active*50,150),(self.pos[0],self.pos[1],self.size[0],self.size[1]),0)
     pygame.draw.rect(self.parent.screen,(200,200,200),(self.pos[0],self.pos[1],self.size[0],self.size[1]),1)
@@ -69,6 +68,7 @@ class AdvButton(Button):
     if self.jump:
       self.parent.jump(0)
 
+
 class Textfeld():
   def __init__(self,parent,pos,size,value):
     self.parent = parent
@@ -90,7 +90,7 @@ class Textfeld():
 
 
 class Animation():
-    func = "z = z*z-c"
+    func = "Mandel"
     loadfunc = True
     size = (480,480)
     fps = 30
@@ -107,18 +107,56 @@ class Animation():
     julia  = False
     rotate = False
     angle = 0
+    fun = None
     def __init__(self,**kwargs):
-
         if self.loadfunc:
           self.reset()
         for param in kwargs:
           setattr(self,param,kwargs[param])
         self.init_end()
+
     def init_end(self):
         if self.loadfunc:
-          self.set_c_function(self.func)
+          self.set_cuda_function(self.func)
         objlength = self.size[0]*self.size[1]*3
         self.result = (c_ubyte*objlength)()
+
+    def set_cuda_function(self,func):
+        print(func)
+        self.func = func
+        self.fun = getattr(mandel,func)
+
+    def make_picture(self):
+        if self.rotate:
+            self.angle += 1
+            mandel.rotate(self.angle)
+        if self.disort:
+            self.fun(c_ushort(self.size[0] + int(self.size[0] * 0.2)),
+                     c_ushort(self.size[1] - int(self.size[0] * 0.2)),
+                     c_longdouble(self.span),
+                     c_longdouble(self.center[0]),
+                     c_longdouble(self.center[1]),
+                     c_ushort(self.iterations),
+                     c_ushort(self.frame),
+                     self.result,
+                     c_ubyte(self.R_mode),
+                     c_ubyte(self.G_mode),
+                     c_ubyte(self.B_mode),
+                     c_ubyte(self.julia))
+
+        else:
+            self.fun(c_ushort(self.size[0]),
+                     c_ushort(self.size[1]),
+                     c_longdouble(self.span),
+                     c_longdouble(self.center[0]),
+                     c_longdouble(self.center[1]),
+                     c_ushort(self.iterations),
+                     c_ushort(self.frame),
+                     self.result,
+                     c_ubyte(self.R_mode),
+                     c_ubyte(self.G_mode),
+                     c_ubyte(self.B_mode),
+                     c_ubyte(self.julia))
 
     def reset(self):
         self.frame = 0
@@ -133,30 +171,8 @@ class Animation():
         self.iterations_end = False
         self.it_grow = 0.15
         os.system("rm log.txt")
-        
         if self.screen:
-          #self.make_buttons()
           self.update()
-
-    def run(self):
-        print(self.size,self.frame,self.iterations,self.center,self.func)
-        s = time()
-        self.background()
-        self.save_2()
-        print(time()-s)
-        return
-        #self.iterations = self.iterations_start + self.it_grow * self.frame
-        stamp = time()
-        if frames == 0:
-            return
-        if not self.split:
-            self.background()
-        else:
-            self.split_screen()
-
-        self.save_pic()
-        self.frame += 1
-        print(str("{0:.2f}".format(time() - stamp)) + " Sekunden")
 
     def jump(self, steps):
         if steps > 0:
@@ -166,7 +182,6 @@ class Animation():
         if steps < 0:
           self.span = np.float128(self.span / self.zoom**abs(steps) )
         self.frame += abs(steps)
-        
         stamp = time()
         if not self.split:
             self.background()
@@ -174,21 +189,14 @@ class Animation():
             self.split_screen()
         if self.save:
           self.save_pic()
-
-        #print("[",self.span,",", self.center,"]")
         print(str("{0:.4f}".format(time() - stamp)) + " Sekunden")
         self.update()
-
-    def make_picture(self):
-        mandel.frac_c(c_int(self.size[0]), 
-                       c_int(self.size[1]), 
-                       c_longdouble(self.span), 
-                       c_longdouble(self.center[0]),
-                       c_longdouble(self.center[1]), 
-                       c_int(self.iterations),
-                       c_int(self.frame),
-                       self.result)
-
+    def run(self):
+        print(self.size,self.frame,self.iterations,self.center,self.func)
+        s = time()
+        self.background()
+        self.save_2()
+        print(time()-s)
     def background(self):
         if (self.start and self.start != self.end) or (self.iterations != self.iterations_start):
             self.iterations = int(self.iterations_start + self.it_grow * self.frame)
@@ -262,17 +270,9 @@ class Animation():
     def mult_value(self, attr, value):
         setattr(self, attr, getattr(self, attr) * value)
 
-    def save_project(self):
-        print(dir(self))
     def mk_video(self,ff = '.bmp'):
         os.system("ffmpeg -f image2 -i ./pics/%05d"+ff+" -pix_fmt yuv420p -y out.mp4")
 
-    def set_c_function(self, func):
-        self.func = func
-        set_c_function(func)
-    def set_cuda_function(self,func):
-        self.func = func
-        set_cuda_function(func)
     def save_spot(self):
         with open("spot.txt","a+") as f:
           f.write("cuda;" if "cu" in self.func else "c;")
@@ -302,64 +302,78 @@ class Animation():
           for stat in ['frame',"iterations","center",'span',"rotate",'julia']:
              f.write(str(getattr(self,stat)) + ";")
           f.write("\n")
+
     def make_buttons(self):
         self.buttons = []
         y = 0
-        
-        for fun in open("rep/cuda_funcs.txt","r"):
-          if fun.find("/"):
-           try:
-              a = fun.split('#')
-              self.buttons.append(AdvButton(self, (self.size[0], y * 20), (200, 20), a[0], (lambda x=a[1]: self.set_cuda_function(x[:-1])),reset=True,aa=True,group='funcs'))
-              y+=1
-           except:
-              pass#self.buttons.append(AdvButton(self, (self.size[0], y * 20), (200, 20), fun[3:-1], (lambda x=fun: self.set_cuda_function(x[:-1])),reset=True,aa=True,group='funcs'))
-           
+
+        for fun in open("rep/cuda_funcs.txt", "r"):
+            if fun.find("/"):
+                if '#' in fun:
+                    a = fun.split('#')
+                    self.buttons.append(AdvButton(self, (self.size[0], y * 20), (200, 20), a[0],
+                                                  (lambda x=a[0]: self.set_cuda_function(x[:])), reset=True, aa=True,
+                                                  group='funcs'))
+                    y += 1
+
         self.buttons.append(
-            AdvButton(self, (100, self.size[1]), (30, 30), "+", lambda: (self.add_value("iterations_start", 5)),jump=True))
+            AdvButton(self, (100, self.size[1]), (30, 30), "+", lambda: (self.add_value("iterations_start", 5)),
+                      jump=True))
         self.buttons.append(
-            AdvButton(self, (0, self.size[1]), (30, 30), "-", lambda: self.add_value("iterations_start", -5),jump=True))
+            AdvButton(self, (0, self.size[1]), (30, 30), "-", lambda: self.add_value("iterations_start", -5),
+                      jump=True))
 
         self.textfelder.append(Textfeld(self, (30, self.size[1]), (70, 30), "iterations"))
         self.textfelder.append(Textfeld(self, (160, self.size[1]), (70, 30), "it_grow"))
         self.textfelder.append(Textfeld(self, (400, self.size[1]), (70, 30), "steps"))
         self.textfelder.append(Textfeld(self, (530, self.size[1]), (70, 30), "zoom"))
-  
 
-  
         self.buttons.append(
-            AdvButton(self, (600, self.size[1]), (30, 30), "+.01", lambda: self.add_value("zoom", +.01),jump=True))
+            AdvButton(self, (600, self.size[1]), (30, 30), "+.01", lambda: self.add_value("zoom", +.01), jump=True))
         self.buttons.append(
-            AdvButton(self, (500, self.size[1]), (30, 30), "-.01", lambda: self.add_value("zoom", -.01),jump=True))
+            AdvButton(self, (500, self.size[1]), (30, 30), "-.01", lambda: self.add_value("zoom", -.01), jump=True))
 
         self.buttons.append(AdvButton(self, (470, self.size[1]), (30, 30), "++", lambda: self.add_value("steps", +1)))
         self.buttons.append(AdvButton(self, (370, self.size[1]), (30, 30), "--", lambda: self.add_value("steps", -1)))
 
         self.buttons.append(
-            AdvButton(self, (230, self.size[1]), (30, 30), "*1.1", lambda: self.mult_value("it_grow", 1.1),jump=True))
+            AdvButton(self, (230, self.size[1]), (30, 30), "*1.1", lambda: self.mult_value("it_grow", 1.1), jump=True))
         self.buttons.append(
-            AdvButton(self, (130, self.size[1]), (30, 30), "*0.9", lambda: self.mult_value("it_grow", 0.9),jump=True))
+            AdvButton(self, (130, self.size[1]), (30, 30), "*0.9", lambda: self.mult_value("it_grow", 0.9), jump=True))
 
-
-        self.textfelder.append(Textfeld(self, (730, self.size[1]-30), (70, 30), "R_mode"))
-        self.buttons.append(AdvButton(self, (800, self.size[1]-30), (30, 30), "++", lambda: self.add_value("R_mode", +1),jump=True))
-        self.buttons.append(AdvButton(self, (700, self.size[1]-30), (30, 30), "--", lambda: self.add_value("R_mode", -1),jump=True))
+        self.textfelder.append(Textfeld(self, (730, self.size[1] - 30), (70, 30), "R_mode"))
+        self.buttons.append(
+            AdvButton(self, (800, self.size[1] - 30), (30, 30), "++", lambda: self.add_value("R_mode", +1), jump=True))
+        self.buttons.append(
+            AdvButton(self, (700, self.size[1] - 30), (30, 30), "--", lambda: self.add_value("R_mode", -1), jump=True))
         self.textfelder.append(Textfeld(self, (730, self.size[1]), (70, 30), "G_mode"))
-        self.buttons.append(AdvButton(self, (800, self.size[1]), (30, 30), "++", lambda: self.add_value("G_mode", +1),jump=True))
-        self.buttons.append(AdvButton(self, (700, self.size[1]), (30, 30), "--", lambda: self.add_value("G_mode", -1),jump=True))
+        self.buttons.append(
+            AdvButton(self, (800, self.size[1]), (30, 30), "++", lambda: self.add_value("G_mode", +1), jump=True))
+        self.buttons.append(
+            AdvButton(self, (700, self.size[1]), (30, 30), "--", lambda: self.add_value("G_mode", -1), jump=True))
 
-        self.textfelder.append(Textfeld(self, (730, self.size[1]+30), (70, 30), "B_mode"))
-        self.buttons.append(AdvButton(self, (800, self.size[1]+30), (30, 30), "++", lambda: self.add_value("B_mode", +1),jump=True))
-        self.buttons.append(AdvButton(self, (700, self.size[1]+30), (30, 30), "--", lambda: self.add_value("B_mode", -1),jump=True))
+        self.textfelder.append(Textfeld(self, (730, self.size[1] + 30), (70, 30), "B_mode"))
+        self.buttons.append(
+            AdvButton(self, (800, self.size[1] + 30), (30, 30), "++", lambda: self.add_value("B_mode", +1), jump=True))
+        self.buttons.append(
+            AdvButton(self, (700, self.size[1] + 30), (30, 30), "--", lambda: self.add_value("B_mode", -1), jump=True))
 
+        # self.buttons.append(AdvButton(self, (260, self.size[1]), (100, 30), "Split-Mode", (lambda: self.toggle("split"))))
+        self.buttons.append(AdvButton(self, (self.size[0], self.size[1]), (50, 30), "Video", lambda: self.mk_video()))
+        self.buttons.append(
+            AdvButton(self, (self.size[0], self.size[1] + 30), (50, 30), "Auto", lambda: self.toggle("autozoom"),
+                      aa=True, toggle=True))
+        self.textfelder.append(Textfeld(self, (0, self.size[1] + 30), (70, 30), "frame"))
+        self.buttons.append(
+            AdvButton(self, (70, self.size[1] + 30), (100, 30), "Julia", lambda: self.toggle("julia"), jump=True,
+                      aa=True, group=False, toggle=True))
+        self.buttons.append(
+            AdvButton(self, (170, self.size[1] + 30), (100, 30), "Rotate", lambda: self.toggle("rotate"), jump=True,
+                      aa=True, group=False, toggle=True))
+        self.buttons.append(
+            AdvButton(self, (270, self.size[1] + 30), (100, 30), "Disort", lambda: self.toggle("disort"), jump=True,
+                      aa=True, group=False, toggle=True))
 
-        #self.buttons.append(AdvButton(self, (260, self.size[1]), (100, 30), "Split-Mode", (lambda: self.toggle("split"))))
-        self.buttons.append(AdvButton(self,(self.size[0],self.size[1]),(50,30),"Video",lambda:self.mk_video()))
-        self.buttons.append(AdvButton(self,(self.size[0],self.size[1]+30),(50,30),"Auto",lambda:self.toggle("autozoom"),aa=True,toggle=True))
-        self.textfelder.append(Textfeld(self, (0, self.size[1]+30), (70, 30), "frame"))
-        self.buttons.append(AdvButton(self,(70,self.size[1]+30),(100,30),"Julia",lambda:self.toggle("julia"),jump=True,aa=True,group=False,toggle=True))
-        self.buttons.append(AdvButton(self,(170,self.size[1]+30),(100,30),"Rotate",lambda:self.toggle("rotate"),jump=True,aa=True,group=False,toggle=True))
-        self.buttons.append(AdvButton(self,(270,self.size[1]+30),(100,30),"Disort",lambda:self.toggle("disort"),jump=True,aa=True,group=False,toggle=True))              
     def window(self):
         '''Initialisiere Alle Einstellungen und Buttons für Pygame'''
         running = True
@@ -367,13 +381,11 @@ class Animation():
         pygame.init()
         self.myfont = pygame.font.SysFont("Comic Sans MS", 15 if 'win' in platform else 15)
         self.screen = pygame.display.set_mode((self.size[0] + 200, self.size[1] + 60))
-        
         self.make_buttons()
         for button in self.buttons:
             button.draw()
         for textfeld in self.textfelder:
             textfeld.draw()
-        
         tick = 0
         self.jump(0)
         while running:
@@ -390,9 +402,7 @@ class Animation():
                 self.center = (
                   self.center[0] + (pos[0] - self.size[0] / 2) / ((self.size[0]) / 2 / self.span)/4,
                   self.center[1] + (pos[1] - self.size[1] / 2) / ((self.size[1]) / 2 / self.span)/4)
-                #print("[",self.span,",", self.center,"]")
                 self.jump(-self.steps)
-                #sleep(1/25)
             elif self.autozoom and (time()-tick>0.05):
               self.jump(self.steps)
               tick  = time()
@@ -404,7 +414,6 @@ class Animation():
                     if event.key == pygame.K_ESCAPE:
                         running = False
                     elif event.key == pygame.K_F2:
-                        #self.reset()
                         self.frame = 0
                         self.center = (0,0)
                         self.span = np.float128(4)
@@ -426,37 +435,23 @@ class Animation():
                             textfeld.draw()
                     elif event.key == pygame.K_s:
                         ##das kann man vlt noch Threaden!
-                        A = Anim2(loadfunc=False, size=(4000,4000), frame=self.frame, center=self.center, iterations=self.iterations, iterations_start = self.iterations_start, start=self.start, span=self.span,zoom = self.zoom,it_grow=self.it_grow,R_mode = self.R_mode, G_mode = self.G_mode, B_mode = self.B_mode)
-                        A.fun = getattr(mandel,"frac_c")
+                        A = Animation(loadfunc=False, size=(4000,4000), frame=self.frame, center=self.center, iterations=self.iterations, iterations_start = self.iterations_start, start=self.start, span=self.span,zoom = self.zoom,it_grow=self.it_grow,R_mode = self.R_mode, G_mode = self.G_mode, B_mode = self.B_mode)
+                        A.fun = getattr(mandel,self.func)
                         A.run()
-                    elif event.key == pygame.K_1:
-                        self.start = self.span
-                        self.frame = 0
-                        self.iterations_start = self.iterations
-                        print("Start", self.start)
-                    elif event.key == pygame.K_2:
-                        self.end = self.span
-                        print("From", self.start, "to", self.end, "with center at", self.center, "and function")
-                    elif event.key == pygame.K_3:
-                        self.save_project()
-                    elif event.key == pygame.K_0:
-                        self.iterations_start = 50
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                   if event.button == 1:
                     left_click = True
                   if event.button==3:
                     right_click = True 
-                    self.jump(-self.steps)
+                    #self.jump(-self.steps)
                   pos = pygame.mouse.get_pos()
                   for button in self.buttons:
                             button.click(pos)
                   self.update()
-
                   for button in self.buttons:
                         button.draw()
                   for textfeld in self.textfelder:
                         textfeld.draw()
-
                 elif event.type == pygame.MOUSEBUTTONUP:
                  if event.button == 1:
                    left_click = False
@@ -465,136 +460,9 @@ class Animation():
             self.draw_grid()
             pygame.display.flip()
         pygame.quit()
-      
-class Anim2(Animation):
-   func = "z = cuCsub(cuCmul(z,z),c)"
-   fun = None
-   def init_end(self):
-        if self.loadfunc:
-          self.set_cuda_function(self.func)
-        objlength = self.size[0]*self.size[1]*3
-        self.result = (c_ubyte*objlength)()
-   def set_c_function(self, func):
-        self.func = func
-        set_c_function(func)
-        self.fun = getattr(mandel,"frac_c")
-   def set_cuda_function(self,func):
-        self.func = func
-        set_cuda_function(func)
-        self.fun = getattr(mandel,"frac_c")
-   def make_picture(self):
-        if self.rotate:
-          self.angle += 1
-          mandel.rotate(self.angle)
-        if self.disort:
-          self.fun(c_ushort(self.size[0]+ int (self.size[0]*0.2)), 
-                 c_ushort(self.size[1]- int (self.size[0]*0.2)), 
-                 c_longdouble(self.span), 
-                 c_longdouble(self.center[0]),
-                 c_longdouble(self.center[1]), 
-                 c_ushort(self.iterations),
-                 c_ushort(self.frame),
-                 self.result,
-                 c_ubyte(self.R_mode),
-                 c_ubyte(self.G_mode),
-                 c_ubyte(self.B_mode),
-                 c_ubyte(self.julia))
-
-        else:
-          self.fun(c_ushort(self.size[0]), 
-                 c_ushort(self.size[1]), 
-                 c_longdouble(self.span), 
-                 c_longdouble(self.center[0]),
-                 c_longdouble(self.center[1]), 
-                 c_ushort(self.iterations),
-                 c_ushort(self.frame),
-                 self.result,
-                 c_ubyte(self.R_mode),
-                 c_ubyte(self.G_mode),
-                 c_ubyte(self.B_mode),
-                 c_ubyte(self.julia))
-
-class Anim3(Anim2):
-    func = "Mandel"
-    def init_end(self):
-
-        if self.loadfunc:
-          self.set_cuda_function(self.func)
-        objlength = self.size[0]*self.size[1]*3
-        self.result = (c_ubyte*objlength)()
-
-    def set_cuda_function(self,func):
-        print(func)
-        self.func = func
-
-        #set_cuda_function(func)
-        self.fun = getattr(mandel,func)
-    def make_buttons(self):
-        self.buttons = []
-        y = 0
-        
-        for fun in open("rep/cuda_funcs.txt","r"):
-          if fun.find("/"):
-           if '#' in fun:
-              a = fun.split('#')
-              self.buttons.append(AdvButton(self, (self.size[0], y * 20), (200, 20), a[0], (lambda x=a[0]: self.set_cuda_function(x[:])),reset=True,aa=True,group='funcs'))
-              y+=1
-           
-        self.buttons.append(
-            AdvButton(self, (100, self.size[1]), (30, 30), "+", lambda: (self.add_value("iterations_start", 5)),jump=True))
-        self.buttons.append(
-            AdvButton(self, (0, self.size[1]), (30, 30), "-", lambda: self.add_value("iterations_start", -5),jump=True))
-
-        self.textfelder.append(Textfeld(self, (30, self.size[1]), (70, 30), "iterations"))
-        self.textfelder.append(Textfeld(self, (160, self.size[1]), (70, 30), "it_grow"))
-        self.textfelder.append(Textfeld(self, (400, self.size[1]), (70, 30), "steps"))
-        self.textfelder.append(Textfeld(self, (530, self.size[1]), (70, 30), "zoom"))
-  
-
-  
-        self.buttons.append(
-            AdvButton(self, (600, self.size[1]), (30, 30), "+.01", lambda: self.add_value("zoom", +.01),jump=True))
-        self.buttons.append(
-            AdvButton(self, (500, self.size[1]), (30, 30), "-.01", lambda: self.add_value("zoom", -.01),jump=True))
-
-        self.buttons.append(AdvButton(self, (470, self.size[1]), (30, 30), "++", lambda: self.add_value("steps", +1)))
-        self.buttons.append(AdvButton(self, (370, self.size[1]), (30, 30), "--", lambda: self.add_value("steps", -1)))
-
-        self.buttons.append(
-            AdvButton(self, (230, self.size[1]), (30, 30), "*1.1", lambda: self.mult_value("it_grow", 1.1),jump=True))
-        self.buttons.append(
-            AdvButton(self, (130, self.size[1]), (30, 30), "*0.9", lambda: self.mult_value("it_grow", 0.9),jump=True))
-
-
-        self.textfelder.append(Textfeld(self, (730, self.size[1]-30), (70, 30), "R_mode"))
-        self.buttons.append(AdvButton(self, (800, self.size[1]-30), (30, 30), "++", lambda: self.add_value("R_mode", +1),jump=True))
-        self.buttons.append(AdvButton(self, (700, self.size[1]-30), (30, 30), "--", lambda: self.add_value("R_mode", -1),jump=True))
-        self.textfelder.append(Textfeld(self, (730, self.size[1]), (70, 30), "G_mode"))
-        self.buttons.append(AdvButton(self, (800, self.size[1]), (30, 30), "++", lambda: self.add_value("G_mode", +1),jump=True))
-        self.buttons.append(AdvButton(self, (700, self.size[1]), (30, 30), "--", lambda: self.add_value("G_mode", -1),jump=True))
-
-        self.textfelder.append(Textfeld(self, (730, self.size[1]+30), (70, 30), "B_mode"))
-        self.buttons.append(AdvButton(self, (800, self.size[1]+30), (30, 30), "++", lambda: self.add_value("B_mode", +1),jump=True))
-        self.buttons.append(AdvButton(self, (700, self.size[1]+30), (30, 30), "--", lambda: self.add_value("B_mode", -1),jump=True))
-
-
-        #self.buttons.append(AdvButton(self, (260, self.size[1]), (100, 30), "Split-Mode", (lambda: self.toggle("split"))))
-        self.buttons.append(AdvButton(self,(self.size[0],self.size[1]),(50,30),"Video",lambda:self.mk_video()))
-        self.buttons.append(AdvButton(self,(self.size[0],self.size[1]+30),(50,30),"Auto",lambda:self.toggle("autozoom"),aa=True,toggle=True))
-        self.textfelder.append(Textfeld(self, (0, self.size[1]+30), (70, 30), "frame"))
-        self.buttons.append(AdvButton(self,(70,self.size[1]+30),(100,30),"Julia",lambda:self.toggle("julia"),jump=True,aa=True,group=False,toggle=True))
-        self.buttons.append(AdvButton(self,(170,self.size[1]+30),(100,30),"Rotate",lambda:self.toggle("rotate"),jump=True,aa=True,group=False,toggle=True))
-        self.buttons.append(AdvButton(self,(270,self.size[1]+30),(100,30),"Disort",lambda:self.toggle("disort"),jump=True,aa=True,group=False,toggle=True))
-                
-        return
-        for fun in dir(color):
-            if not fun.find("c_"):
-                self.buttons.append(AdvButton(self, (self.size[0] + 150, y * 30), (150, 30), fun[3:],
-                                              (lambda x=fun: self.set_color(x))))
-                y += 1
 
   
 
 if __name__ == '__main__':
     load_cuda()
-    Anim3(size=(640,640),disort=False,save=False).window()
+    Animation(size=(640,640),disort=False,save=False).window()
