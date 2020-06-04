@@ -19,7 +19,7 @@ If u want to use it on Windows, you have to compile the cuda code as DLL and mod
 
 -ffmpeg (if u want to save a video from this)
 
-Run 'create_cuda_code' to create and compile the 'frac.so'. If an error shows up, try changing compiler architecture in line 197.
+Run 'create_cuda_code' to create and compile the 'frac.so'. If an error occurs, try changing compiler architecture in line 197.
 
 Run fractal.py to explore the fractals :)
 
