@@ -9,3 +9,4 @@ littleguy#z = cuCadd(cuCsub(cuCmul(erfC(cuCdiv(z,c)),erfC(cuCmul(z,c))),cuCmul(z
 movlittleguy#z = cuCadd(cuCsub(cuCmul(erfC(cuCdiv(z,c)),erfC(cuCmul(z,c))),cuCmul(z,z)),cuCaddD(c,0.5*sinusfr(2*frame)))
 SinCosMandel#z = cuCsub(cuCmul(Csin(z),Ccos(z)),c)
 ExpMandel#z = cuCsub(cuCmul(z,cuExp(Csin(z))),c)
+Bob#z = cuCsub(cuCmul(z,z),c)

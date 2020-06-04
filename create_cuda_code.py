@@ -182,20 +182,28 @@ cu_make = '''__host__ void %s(const unsigned short int width,const unsigned shor
 '''
 final = "}"
 
-def compile(functions):
+def create(functions):
   with open("frac.cu","w+") as f:
    f.write(cu_head)
    for name, func in functions:
      f.write(cu_func%(name+"_calc",func))
      f.write(cu_make%(name,name+"_calc"))
    f.write(final)
+  try:
+    import os
+  except:
+    pass
+  print("Compiliere mit CUDA")
+  os.system("nvcc frac.cu -arch sm_61 -Xcompiler -fPIC -shared -o frac.so")
+  os.system("rm frac.cu")
+  print("Compilierung erfolgreich")
 
-if __name__ == '__main__':
-  functions = []
-  with open("cuda_funcs.txt") as f:
-    for line in f:
-      if '#' in line:
-        functions.append((line.split("#")[0],line.split('#')[1][:-1]))
-  compile(functions)
+functions = []
+with open("cuda_funcs.txt") as f:
+  for line in f:
+    if '#' in line:
+      functions.append((line.split("#")[0],line.split('#')[1][:-1]))
+
+create(functions)
      
 
