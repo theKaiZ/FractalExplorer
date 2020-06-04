@@ -1,4 +1,6 @@
 import pygame
+import os
+
 
 class Button():
     active = False
@@ -58,7 +60,7 @@ class AdvButton(Button):
                 self.active = True
 
         if self.reset:
-            os.system("rm -r ./pics/*.png")
+            #os.system("rm -r ./pics/*.png")
             self.parent.reset()
             self.parent.jump(0)
         if self.jump:

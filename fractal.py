@@ -1,7 +1,8 @@
-import GUI
+from GUI import *
+#import pygame
 import numpy as np
 from PIL import Image
-import os
+
 from ctypes import *
 from time import time,sleep
 from sys import platform
@@ -233,7 +234,7 @@ class Animation():
         self.buttons = []
         y = 0
 
-        for fun in open("rep/cuda_funcs.txt", "r"):
+        for fun in open("cuda_funcs.txt", "r"):
             if fun.find("/"):
                 if '#' in fun:
                     a = fun.split('#')
