@@ -96,7 +96,6 @@ class Animation():
         #os.system("rm log.txt")
         if self.screen:
           self.update()
-
     def jump(self, steps):
         if steps > 0:
            self.log()
@@ -132,18 +131,15 @@ class Animation():
     def draw_grid(self):
         pygame.draw.line(self.screen,(0,0,0),(self.size[0]/2-25,self.size[1]/2),(self.size[0]/2+25,self.size[1]/2))
         pygame.draw.line(self.screen,(0,0,0),(self.size[0]/2,self.size[1]/2-25),(self.size[0]/2,self.size[1]/2+25))
-
     def save_pic(self, ff = '.bmp'):
         if not os.path.exists("pics/"):
             os.mkdir("pics")
         self.filename = self.folder + "pics/" + (5 - len(str(self.frame))) * "0" + str(self.frame) + ff
         im = Image.frombuffer("RGB",(self.size[0],self.size[1]),self.result,"raw","RGB",0,1)
-        #im = pygame.image.frombuffer(self.result,(self.size[0],self.size[1]),"RGB")
         if self.disort: 
            print("Disortion!")
            im  =im.crop((0,0,self.size[0],self.size[1]-int(self.size[0]*0.375)))
            im  = im.resize(self.size)
-        #pygame.image.save(im, self.filename)
         im.save(self.filename)
         print(self.frame)
 
@@ -326,7 +322,7 @@ class Animation():
                             textfeld.draw()
                     elif event.key == pygame.K_s:
                         ##das kann man vlt noch Threaden!
-                        A = Animation(loadfunc=False, size=(10000,10000), frame=self.frame, center=self.center, iterations=self.iterations, iterations_start = self.iterations_start, start=self.start, span=self.span,zoom = self.zoom,it_grow=self.it_grow,R_mode = self.R_mode, G_mode = self.G_mode, B_mode = self.B_mode)
+                        A = Animation(loadfunc=False, size=(4000,4000), frame=self.frame, center=self.center, iterations=self.iterations, iterations_start = self.iterations_start, start=self.start, span=self.span,zoom = self.zoom,it_grow=self.it_grow,R_mode = self.R_mode, G_mode = self.G_mode, B_mode = self.B_mode)
                         A.fun = getattr(mandel,self.func)
                         A.run()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
