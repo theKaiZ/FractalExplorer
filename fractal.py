@@ -3,51 +3,54 @@ import os
 import numpy as np
 from PIL import Image
 from ctypes import *
-from time import time,sleep
+from time import time, sleep
 from sys import platform
 
+
 def load_cuda():
-  global mandel
-  LibName = 'frac.so'
-  AbsLibPath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + LibName
-  mandel = CDLL(AbsLibPath,mode=RTLD_LOCAL)
+    global mandel
+    LibName = 'frac.so'
+    AbsLibPath = os.path.dirname(os.path.abspath(__file__)) + os.path.sep + LibName
+    mandel = CDLL(AbsLibPath, mode=RTLD_LOCAL)
+
 
 class Animation():
     func = "Mandel"
     loadfunc = True
-    size = (480,480)
+    size = (480, 480)
     fps = 30
     screen = False
     buttons = []
     textfelder = []
-    split= False
+    split = False
     folder = ""
     save = False
     R_mode = 1
     G_mode = 1
     B_mode = 1
     disort = False
-    julia  = False
+    julia = False
     rotate = False
     angle = 0
     fun = None
-    def __init__(self,**kwargs):
+
+    def __init__(self, **kwargs):
         if self.loadfunc:
-          self.reset()
+            self.reset()
         for param in kwargs:
-          setattr(self,param,kwargs[param])
+            setattr(self, param, kwargs[param])
         self.init_end()
 
     def init_end(self):
         if self.loadfunc:
-          self.set_cuda_function(self.func)
-        objlength = self.size[0]*self.size[1]*3
-        self.result = (c_ubyte*objlength)()
+            self.set_cuda_function(self.func)
+        objlength = self.size[0] * self.size[1] * 3
+        self.result = (c_ubyte * objlength)()
 
-    def set_cuda_function(self,func):
+    def set_cuda_function(self, func):
         print(func)
         self.func = func
-        self.fun = getattr(mandel,func)
+        self.fun = getattr(mandel, func)
 
     def make_picture(self):
         if self.rotate:
@@ -93,16 +96,17 @@ class Animation():
         self.end = False
         self.iterations_end = False
         self.it_grow = 0.15
-        #os.system("rm log.txt")
+        # os.system("rm log.txt")
         if self.screen:
-          self.update()
+            self.update()
+
     def jump(self, steps):
         if steps > 0:
-           self.log()
+            self.log()
         if steps > 0:
-          self.span = np.float128(self.span * self.zoom**steps)
+            self.span = np.float128(self.span * self.zoom ** steps)
         if steps < 0:
-          self.span = np.float128(self.span / self.zoom**abs(steps) )
+            self.span = np.float128(self.span / self.zoom ** abs(steps))
         self.frame += abs(steps)
         stamp = time()
         if not self.split:
@@ -110,43 +114,49 @@ class Animation():
         else:
             self.split_screen()
         if self.save:
-          self.save_pic()
+            self.save_pic()
         print(str("{0:.4f}".format(time() - stamp)) + " Sekunden")
         self.update()
+
     def run(self):
-        print(self.size,self.frame,self.iterations,self.center,self.func)
+        print(self.size, self.frame, self.iterations, self.center, self.func)
         s = time()
         self.background()
         self.save_2()
-        print(time()-s)
+        print(time() - s)
+
     def background(self):
         if (self.start and self.start != self.end) or (self.iterations != self.iterations_start):
             self.iterations = int(self.iterations_start + self.it_grow * self.frame)
         self.make_picture()
         if self.screen:
-          self.img  = pygame.image.frombuffer(self.result,(self.size[0],self.size[1]),"RGB")
-          if self.disort:
-            self.img = pygame.transform.scale(self.img,(self.size[0],self.size[1]+360))
-          self.screen.blit(self.img,(0,0))
+            self.img = pygame.image.frombuffer(self.result, (self.size[0], self.size[1]), "RGB")
+            if self.disort:
+                self.img = pygame.transform.scale(self.img, (self.size[0], self.size[1] + 360))
+            self.screen.blit(self.img, (0, 0))
+
     def draw_grid(self):
-        pygame.draw.line(self.screen,(0,0,0),(self.size[0]/2-25,self.size[1]/2),(self.size[0]/2+25,self.size[1]/2))
-        pygame.draw.line(self.screen,(0,0,0),(self.size[0]/2,self.size[1]/2-25),(self.size[0]/2,self.size[1]/2+25))
-    def save_pic(self, ff = '.bmp'):
+        pygame.draw.line(self.screen, (0, 0, 0), (self.size[0] / 2 - 25, self.size[1] / 2),
+                         (self.size[0] / 2 + 25, self.size[1] / 2))
+        pygame.draw.line(self.screen, (0, 0, 0), (self.size[0] / 2, self.size[1] / 2 - 25),
+                         (self.size[0] / 2, self.size[1] / 2 + 25))
+
+    def save_pic(self, ff='.bmp'):
         if not os.path.exists("pics/"):
             os.mkdir("pics")
         self.filename = self.folder + "pics/" + (5 - len(str(self.frame))) * "0" + str(self.frame) + ff
-        im = Image.frombuffer("RGB",(self.size[0],self.size[1]),self.result,"raw","RGB",0,1)
-        if self.disort: 
-           print("Disortion!")
-           im  =im.crop((0,0,self.size[0],self.size[1]-int(self.size[0]*0.375)))
-           im  = im.resize(self.size)
+        im = Image.frombuffer("RGB", (self.size[0], self.size[1]), self.result, "raw", "RGB", 0, 1)
+        if self.disort:
+            print("Disortion!")
+            im = im.crop((0, 0, self.size[0], self.size[1] - int(self.size[0] * 0.375)))
+            im = im.resize(self.size)
         im.save(self.filename)
         print(self.frame)
 
     def save_2(self):
         if not os.path.exists("pics2/"):
             os.mkdir("pics2")
-        Image.frombuffer("RGB",(self.size[0],self.size[1]),self.result,"raw","RGB",0,1).save(
+        Image.frombuffer("RGB", (self.size[0], self.size[1]), self.result, "raw", "RGB", 0, 1).save(
             "pics2/" + (5 - len(str(len(os.listdir("pics2/"))))) * "0" + str(len(os.listdir("pics2/"))) + ".png")
 
     def update(self):
@@ -156,6 +166,7 @@ class Animation():
             button.draw()
         for textfeld in self.textfelder:
             textfeld.draw()
+
     def toggle(self, value):
         setattr(self, value, not getattr(self, value))
 
@@ -165,38 +176,40 @@ class Animation():
     def mult_value(self, attr, value):
         setattr(self, attr, getattr(self, attr) * value)
 
-    def mk_video(self,ff = '.bmp'):
-        os.system("ffmpeg -f image2 -i ./pics/%05d"+ff+" -pix_fmt yuv420p -y out.mp4")
+    def mk_video(self, ff='.bmp'):
+        os.system("ffmpeg -f image2 -i ./pics/%05d" + ff + " -pix_fmt yuv420p -y out.mp4")
 
     def save_spot(self):
-        with open("spot.txt","a+") as f:
-          f.write("cuda;" if "cu" in self.func else "c;")
-          f.write(self.func + "\n")
-          f.write("frame;" + str(self.frame)+"\n")
-          f.write("iterations;" + str(self.iterations)+"\n")
-          f.write("center;" + str(self.center[0])+";" + str(self.center[1])+"\n")
-          f.write("span;"+str(self.span)+"\n")
+        with open("spot.txt", "a+") as f:
+            f.write("cuda;" if "cu" in self.func else "c;")
+            f.write(self.func + "\n")
+            f.write("frame;" + str(self.frame) + "\n")
+            f.write("iterations;" + str(self.iterations) + "\n")
+            f.write("center;" + str(self.center[0]) + ";" + str(self.center[1]) + "\n")
+            f.write("span;" + str(self.span) + "\n")
+
     def load_spot(self):
-        with open("spot.txt","r") as f:
-          for line in f:
-            if not line.find("c;"):
-              self.set_c_function(line.split(";")[1])
-            elif not line.find("cuda;"):
-              self.set_cuda_function(line.split(";")[1])
-            elif not line.find("frame;"):
-              self.frame = (int) (line.split(";")[1])
-            elif not line.find("iterations;"):
-              self.iterations = int (line.split(";")[1])
-            elif not line.find("center;"):
-              self.center = (float(line.split(";")[1]), (float(line.split(";")[2])))
-            elif not line.find("span;"):
-              self.span  = np.float_(line.split(";")[1])
+        with open("spot.txt", "r") as f:
+            for line in f:
+                if not line.find("c;"):
+                    self.set_c_function(line.split(";")[1])
+                elif not line.find("cuda;"):
+                    self.set_cuda_function(line.split(";")[1])
+                elif not line.find("frame;"):
+                    self.frame = (int)(line.split(";")[1])
+                elif not line.find("iterations;"):
+                    self.iterations = int(line.split(";")[1])
+                elif not line.find("center;"):
+                    self.center = (float(line.split(";")[1]), (float(line.split(";")[2])))
+                elif not line.find("span;"):
+                    self.span = np.float_(line.split(";")[1])
         self.jump(0)
+
     def log(self):
-        with open("log.txt","a") as f:
-          for stat in ['frame',"iterations","center",'span',"rotate",'julia']:
-             f.write(str(getattr(self,stat)) + ";")
-          f.write("\n")
+        with open("log.txt", "a") as f:
+            for stat in ['frame', "iterations", "center", 'span', "rotate", 'julia']:
+                f.write(str(getattr(self, stat)) + ";")
+            f.write("\n")
 
     def make_buttons(self):
         self.buttons = []
@@ -220,9 +233,9 @@ class Animation():
         self.textfelder.append(Textfeld(self, (400, self.size[1]), (70, 30), "steps"))
         self.textfelder.append(Textfeld(self, (530, self.size[1]), (70, 30), "zoom"))
         self.buttons.append(AdvButton(self, (600, self.size[1]), (30, 30), "+.01",
-                      lambda: self.add_value("zoom", +.01), jump=True))
+                                      lambda: self.add_value("zoom", +.01), jump=True))
         self.buttons.append(AdvButton(self, (500, self.size[1]), (30, 30), "-.01",
-                      lambda: self.add_value("zoom", -.01), jump=True))
+                                      lambda: self.add_value("zoom", -.01), jump=True))
         self.buttons.append(AdvButton(self, (470, self.size[1]), (30, 30), "++",
                                       lambda: self.add_value("steps", +1)))
         self.buttons.append(AdvButton(self, (370, self.size[1]), (30, 30), "--",
@@ -277,32 +290,33 @@ class Animation():
         self.jump(0)
         while running:
             if left_click:
-              pos = pygame.mouse.get_pos()
-              if pos[0] < self.size[0] and pos[1] < self.size[1]:
-                self.center = (
-                  self.center[0] + (pos[0] - self.size[0] / 2) / ((self.size[0]) / 2 / (self.span))/4,
-                  self.center[1] + (pos[1] - self.size[1] / 2) / ((self.size[1]) / 2 / (self.span))/4   )
-                self.jump(self.steps)
+                pos = pygame.mouse.get_pos()
+                if pos[0] < self.size[0] and pos[1] < self.size[1]:
+                    self.center = (
+                        self.center[0] + (pos[0] - self.size[0] / 2) / ((self.size[0]) / 2 / (self.span)) / 4,
+                        self.center[1] + (pos[1] - self.size[1] / 2) / ((self.size[1]) / 2 / (self.span)) / 4)
+                    self.jump(self.steps)
             elif right_click:
-              pos = pygame.mouse.get_pos()
-              if pos[0] < self.size[0] and pos[1] < self.size[1]:
-                self.center = (
-                  self.center[0] + (pos[0] - self.size[0] / 2) / ((self.size[0]) / 2 / self.span)/4,
-                  self.center[1] + (pos[1] - self.size[1] / 2) / ((self.size[1]) / 2 / self.span)/4)
-                self.jump(-self.steps)
-            elif self.autozoom and (time()-tick>0.05):
-              self.jump(self.steps)
-              tick  = time()
-            
+                pos = pygame.mouse.get_pos()
+                if pos[0] < self.size[0] and pos[1] < self.size[1]:
+                    self.center = (
+                        self.center[0] + (pos[0] - self.size[0] / 2) / ((self.size[0]) / 2 / self.span) / 4,
+                        self.center[1] + (pos[1] - self.size[1] / 2) / ((self.size[1]) / 2 / self.span) / 4)
+                    self.jump(-self.steps)
+            elif self.autozoom and (time() - tick > 0.05):
+                self.jump(self.steps)
+                tick = time()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
+
                     if event.key == pygame.K_ESCAPE:
                         running = False
                     elif event.key == pygame.K_F2:
                         self.frame = 0
-                        self.center = (0,0)
+                        self.center = (0, 0)
                         self.span = np.float128(4)
                         self.jump(0)
                     elif event.key == pygame.K_F3:
@@ -322,34 +336,36 @@ class Animation():
                             textfeld.draw()
                     elif event.key == pygame.K_s:
                         ##das kann man vlt noch Threaden!
-                        A = Animation(loadfunc=False, size=(4000,4000), frame=self.frame, center=self.center, iterations=self.iterations, iterations_start = self.iterations_start, start=self.start, span=self.span,zoom = self.zoom,it_grow=self.it_grow,R_mode = self.R_mode, G_mode = self.G_mode, B_mode = self.B_mode)
-                        A.fun = getattr(mandel,self.func)
+                        A = Animation(loadfunc=False, size=(4000, 4000), frame=self.frame, center=self.center,
+                                      iterations=self.iterations, iterations_start=self.iterations_start,
+                                      start=self.start, span=self.span, zoom=self.zoom, it_grow=self.it_grow,
+                                      R_mode=self.R_mode, G_mode=self.G_mode, B_mode=self.B_mode)
+                        A.fun = getattr(mandel, self.func)
                         A.run()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                  if event.button == 1:
-                    left_click = True
-                  if event.button==3:
-                    right_click = True 
-                    #self.jump(-self.steps)
-                  pos = pygame.mouse.get_pos()
-                  for button in self.buttons:
-                            button.click(pos)
-                  self.update()
-                  for button in self.buttons:
+                    if event.button == 1:
+                        left_click = True
+                    if event.button == 3:
+                        right_click = True
+                        # self.jump(-self.steps)
+                    pos = pygame.mouse.get_pos()
+                    for button in self.buttons:
+                        button.click(pos)
+                    self.update()
+                    for button in self.buttons:
                         button.draw()
-                  for textfeld in self.textfelder:
+                    for textfeld in self.textfelder:
                         textfeld.draw()
                 elif event.type == pygame.MOUSEBUTTONUP:
-                 if event.button == 1:
-                   left_click = False
-                 elif event.button == 3:
-                   right_click = False
+                    if event.button == 1:
+                        left_click = False
+                    elif event.button == 3:
+                        right_click = False
             self.draw_grid()
             pygame.display.flip()
         pygame.quit()
 
-  
 
 if __name__ == '__main__':
     load_cuda()
-    Animation(size=(640,640),disort=False,save=False).window()
+    Animation(size=(900, 900), disort=False, save=False).window()

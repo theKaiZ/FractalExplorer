@@ -171,7 +171,7 @@ cu_make = '''__host__ void %s(const unsigned short int width,const unsigned shor
   unsigned char* d_image_buffer;
   unsigned int arr_size = 3 * width * height;
   cudaMallocManaged(&d_image_buffer, arr_size*sizeof(unsigned char));
-  dim3 block_size(16, 16);
+  dim3 block_size(8, 8);
   dim3 grid_size(width / block_size.x, height / block_size.y);
   %s<<<grid_size, block_size>>>(height,width,span,center_x,center_y,iterations,frame,d_image_buffer,R,G,B,julia);
   cudaPeekAtLastError();
@@ -194,8 +194,8 @@ def create(functions):
   except:
     pass
   print("Compiliere mit CUDA")
-  os.system("nvcc frac.cu -arch sm_61 -Xcompiler -fPIC -shared -o frac.so")
-  os.system("rm frac.cu")
+  os.system("nvcc frac.cu -arch sm_30 -Xcompiler -fPIC -shared -o frac.so")
+  #os.system("rm frac.cu")
   print("Compilierung erfolgreich")
 
 functions = []
